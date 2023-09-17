@@ -2,46 +2,37 @@ import React, { useState } from 'react';
 import { solveWithSimplexMethod } from './utils/solveWithSimplexMethod';
 
 function App() {
-  const [objectiveCoefficients, setObjectiveCoefficients] = useState([2, 3]);
-  const [constraints, setConstraints] = useState([]);
-  const [rhsValues, setRhsValues] = useState([]);
-  const [initialSolution, setInitialSolution] = useState([]);
+  const [objectiveCoefficients, setObjectiveCoefficients] = useState([2, 3, 2]);
+  const [constraints, setConstraints] = useState([{ coefficients: [1, 2, 44], rhs: 6, type: '≤' }]);
+  const [initialSolution, setInitialSolution] = useState([0, 0, 0]);
   const [maxIterations, setMaxIterations] = useState(10);
-  const [constraintTypes, setConstraintTypes] = useState([]); // Типы ограничений
-  const [error, setError] = useState(null); // Сообщение об ошибке
+  const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
 
-  const handleAddConstraint = () => {
-    const newConstraint = new Array(objectiveCoefficients.length).fill(0); // Создаем новое ограничение с нулевыми коэффициентами
-    setConstraints([...constraints, newConstraint]);
-    setRhsValues([...rhsValues, 0]);
-    setConstraintTypes([...constraintTypes, '≤']); // По умолчанию выбираем "≤"
+  const handleObjectiveCoefficientChange = (index, newValue) => {
+    const updatedCoefficients = [...objectiveCoefficients];
+    updatedCoefficients[index] = parseFloat(newValue);
+    setObjectiveCoefficients(updatedCoefficients);
   };
 
-  const handleRemoveConstraint = (index) => {
+  const handleConstraintCoefficientChange = (constraintIndex, coefficientIndex, newValue) => {
     const updatedConstraints = [...constraints];
-    updatedConstraints.splice(index, 1);
+    updatedConstraints[constraintIndex].coefficients[coefficientIndex] = parseFloat(newValue);
     setConstraints(updatedConstraints);
-
-    const updatedRhsValues = [...rhsValues];
-    updatedRhsValues.splice(index, 1);
-    setRhsValues(updatedRhsValues);
-
-    const updatedConstraintTypes = [...constraintTypes];
-    updatedConstraintTypes.splice(index, 1);
-    setConstraintTypes(updatedConstraintTypes);
   };
 
   const handleAddCoefficient = () => {
-    const newCoefficient = 0; // Используйте значение по умолчанию, например, 0.
-    const updatedCoefficients = [...objectiveCoefficients, newCoefficient];
-    setObjectiveCoefficients(updatedCoefficients);
+    const newCoefficient = 0;
+    setObjectiveCoefficients([...objectiveCoefficients, newCoefficient]);
 
-    // Обновляем также коэффициенты в ограничениях
-    const updatedConstraints = constraints.map((constraint) => {
-      return [...constraint, newCoefficient];
-    });
+    const updatedConstraints = constraints.map((constraint) => ({
+      ...constraint,
+      coefficients: [...constraint.coefficients, newCoefficient],
+    }));
     setConstraints(updatedConstraints);
+
+    // Обновляет начальное решение, добавляя нулевое значение для нового коэффициента
+    setInitialSolution([...initialSolution, 0]);
   };
 
   const handleRemoveCoefficient = (index) => {
@@ -49,21 +40,48 @@ function App() {
     updatedCoefficients.splice(index, 1);
     setObjectiveCoefficients(updatedCoefficients);
 
-    // Обновляем также коэффициенты в ограничениях
     const updatedConstraints = constraints.map((constraint) => {
-      const copy = [...constraint];
-      copy.splice(index, 1);
+      const copy = { ...constraint };
+      copy.coefficients.splice(index, 1);
       return copy;
     });
+    setConstraints(updatedConstraints);
+
+    // Обновляет начальное решение, удаляя значение, соответствующее удаленному коэффициенту
+    const updatedInitialSolution = [...initialSolution];
+    updatedInitialSolution.splice(index, 1);
+    setInitialSolution(updatedInitialSolution);
+  };
+
+  const handleAddConstraint = () => {
+    const newConstraintCoefficients = new Array(objectiveCoefficients.length).fill(0);
+    setConstraints([
+      ...constraints,
+      { coefficients: newConstraintCoefficients, rhs: 0, type: '≤' },
+    ]);
+  };
+
+  const handleRemoveConstraint = (index) => {
+    const updatedConstraints = [...constraints];
+    updatedConstraints.splice(index, 1);
     setConstraints(updatedConstraints);
   };
 
   const handleSolve = () => {
     // Проверка наличия хотя бы одного ограничения перед решением
-    if (constraints.length === 0 || objectiveCoefficients.length === 0) {
-      setError(
-        'Добавьте хотя бы одно ограничение и хотя бы один коэффициент в целевую функцию перед решением.',
-      );
+    if (constraints.length === 0) {
+      setError('Добавьте хотя бы одно ограничение перед решением.');
+      return;
+    }
+
+    // Проверка, что все введенные значения числа
+    if (
+      !objectiveCoefficients.every(isNumber) ||
+      !constraints.every((constraint) => constraint.coefficients.every(isNumber)) ||
+      !initialSolution.every(isNumber) ||
+      !isNumber(maxIterations)
+    ) {
+      setError('Пожалуйста, убедитесь, что все поля содержат числовые значения.');
       return;
     }
 
@@ -72,16 +90,12 @@ function App() {
       objectiveFunction: {
         coefficients: objectiveCoefficients,
         evaluate: (solution) => {
-          return objectiveCoefficients.reduce((acc, coeff, idx) => acc + coeff * solution[idx], 0);
+          return solution.reduce((acc, coeff, idx) => acc + coeff * objectiveCoefficients[idx], 0);
         },
       },
-      constraints: constraints.map((constraint, index) => ({
-        coefficients: constraint,
-        rhs: rhsValues[index],
-        type: constraintTypes[index], // Тип ограничения
-      })),
+      constraints: constraints,
       initialSolution,
-      maxIterations: parseInt(maxIterations), // Преобразуем в число
+      maxIterations: parseInt(maxIterations),
     };
 
     // Вызываем функцию solveWithSimplexMethod с переданными данными
@@ -92,6 +106,7 @@ function App() {
       data.maxIterations,
     );
 
+    // Обновляем состояние приложения с результатами решения
     if (result === null) {
       setError('Задача неограничена или достигнуто максимальное число итераций');
     } else {
@@ -108,48 +123,37 @@ function App() {
   return (
     <div className="App">
       <h1>Оптимизация симплексным методом</h1>
-      <h2>Целевая функция</h2>
-      <div>
-        {objectiveCoefficients.map((coeff, idx) => (
-          <div key={idx}>
-            <label>{`Коэффициент ${String.fromCharCode(97 + idx)}:`}</label>
-            <input
-              type="number"
-              value={coeff}
-              onChange={(e) => {
-                const updatedCoefficients = [...objectiveCoefficients];
-                updatedCoefficients[idx] = parseFloat(e.target.value);
-                setObjectiveCoefficients(updatedCoefficients);
 
-                // Обновляем также коэффициенты в ограничениях
-                const updatedConstraints = constraints.map((constraint) => {
-                  const copy = [...constraint];
-                  copy[idx] = parseFloat(e.target.value);
-                  return copy;
-                });
-                setConstraints(updatedConstraints);
-              }}
-            />
-            <button onClick={() => handleRemoveCoefficient(idx)}>Удалить</button>
-          </div>
-        ))}
-        <button onClick={handleAddCoefficient}>Добавить коэффициент</button>
-      </div>
+      <h2>Целевая функция</h2>
+      {objectiveCoefficients.map((coeff, idx) => (
+        <div key={idx}>
+          <label>{`Коэффициент ${String.fromCharCode(97 + idx)}:`}</label>
+          <input
+            type="number"
+            value={coeff}
+            onChange={(e) => handleObjectiveCoefficientChange(idx, e.target.value)}
+          />
+          <button onClick={() => handleRemoveCoefficient(idx)}>Удалить</button>
+        </div>
+      ))}
+      <button onClick={handleAddCoefficient}>Добавить коэффициент</button>
 
       <h2>Ограничения</h2>
-      {constraints.map((coefficients, index) => (
-        <div key={index}>
-          {coefficients.map((coeff, idx) => (
-            <div key={idx}>
-              <label>{`Коэффициент ${String.fromCharCode(97 + idx)}:`}</label>
+      {constraints.map((constraint, constraintIndex) => (
+        <div key={constraintIndex}>
+          {constraint.coefficients.map((coeff, coefficientIndex) => (
+            <div key={coefficientIndex}>
+              <label>{`Коэффициент ${String.fromCharCode(97 + coefficientIndex)}:`}</label>
               <input
                 type="number"
                 value={coeff}
-                onChange={(e) => {
-                  const updatedConstraints = [...constraints];
-                  updatedConstraints[index][idx] = parseFloat(e.target.value);
-                  setConstraints(updatedConstraints);
-                }}
+                onChange={(e) =>
+                  handleConstraintCoefficientChange(
+                    constraintIndex,
+                    coefficientIndex,
+                    e.target.value,
+                  )
+                }
               />
             </div>
           ))}
@@ -157,50 +161,50 @@ function App() {
             <label>RHS (правая часть):</label>
             <input
               type="number"
-              value={rhsValues[index]}
+              value={constraint.rhs}
               onChange={(e) => {
-                const updatedRhsValues = [...rhsValues];
-                updatedRhsValues[index] = parseFloat(e.target.value);
-                setRhsValues(updatedRhsValues);
+                const updatedConstraints = [...constraints];
+                updatedConstraints[constraintIndex].rhs = parseFloat(e.target.value);
+                setConstraints(updatedConstraints);
               }}
             />
           </div>
           <div>
             <label>Тип ограничения:</label>
             <select
-              value={constraintTypes[index]}
+              value={constraint.type}
               onChange={(e) => {
-                const updatedConstraintTypes = [...constraintTypes];
-                updatedConstraintTypes[index] = e.target.value;
-                setConstraintTypes(updatedConstraintTypes);
+                const updatedConstraints = [...constraints];
+                updatedConstraints[constraintIndex].type = e.target.value;
+                setConstraints(updatedConstraints);
               }}>
               <option value="≤">≤</option>
               <option value="=">=</option>
               <option value="≥">≥</option>
             </select>
           </div>
-          <button onClick={() => handleRemoveConstraint(index)}>Удалить ограничение</button>
+          <button onClick={() => handleRemoveConstraint(constraintIndex)}>
+            Удалить ограничение
+          </button>
         </div>
       ))}
       <button onClick={handleAddConstraint}>Добавить ограничение</button>
 
       <h2>Начальное решение</h2>
-      <div>
-        {initialSolution.map((solution, idx) => (
-          <div key={idx}>
-            <label>{`x${idx + 1}:`}</label>
-            <input
-              type="number"
-              value={solution}
-              onChange={(e) => {
-                const updatedInitialSolution = [...initialSolution];
-                updatedInitialSolution[idx] = parseFloat(e.target.value);
-                setInitialSolution(updatedInitialSolution);
-              }}
-            />
-          </div>
-        ))}
-      </div>
+      {initialSolution.map((solution, idx) => (
+        <div key={idx}>
+          <label>{`x${idx + 1}:`}</label>
+          <input
+            type="number"
+            value={solution}
+            onChange={(e) => {
+              const updatedInitialSolution = [...initialSolution];
+              updatedInitialSolution[idx] = parseFloat(e.target.value);
+              setInitialSolution(updatedInitialSolution);
+            }}
+          />
+        </div>
+      ))}
 
       <h2>Максимальное число итераций</h2>
       <div>
