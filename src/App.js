@@ -1,10 +1,24 @@
 import React, { useState } from 'react';
 import { solveWithSimplexMethod } from './utils/solveWithSimplexMethod';
+import {
+  Container,
+  Typography,
+  Button,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Grid,
+  List,
+  ListItem,
+  Box,
+} from '@mui/material';
 
 function App() {
-  const [objectiveCoefficients, setObjectiveCoefficients] = useState([2, 3, 2]);
-  const [constraints, setConstraints] = useState([{ coefficients: [1, 2, 44], rhs: 6, type: '≤' }]);
-  const [initialSolution, setInitialSolution] = useState([0, 0, 0]);
+  const [objectiveCoefficients, setObjectiveCoefficients] = useState([2, 3]);
+  const [constraints, setConstraints] = useState([{ coefficients: [1, 2], rhs: 6, type: '≤' }]);
+  const [initialSolution, setInitialSolution] = useState([0, 0]);
   const [maxIterations, setMaxIterations] = useState(10);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -31,7 +45,6 @@ function App() {
     }));
     setConstraints(updatedConstraints);
 
-    // Обновляет начальное решение, добавляя нулевое значение для нового коэффициента
     setInitialSolution([...initialSolution, 0]);
   };
 
@@ -47,7 +60,6 @@ function App() {
     });
     setConstraints(updatedConstraints);
 
-    // Обновляет начальное решение, удаляя значение, соответствующее удаленному коэффициенту
     const updatedInitialSolution = [...initialSolution];
     updatedInitialSolution.splice(index, 1);
     setInitialSolution(updatedInitialSolution);
@@ -68,13 +80,11 @@ function App() {
   };
 
   const handleSolve = () => {
-    // Проверка наличия хотя бы одного ограничения перед решением
     if (constraints.length === 0) {
       setError('Добавьте хотя бы одно ограничение перед решением.');
       return;
     }
 
-    // Проверка, что все введенные значения числа
     if (
       !objectiveCoefficients.every(isNumber) ||
       !constraints.every((constraint) => constraint.coefficients.every(isNumber)) ||
@@ -85,7 +95,6 @@ function App() {
       return;
     }
 
-    // Формируем объект с данными для передачи в solveWithSimplexMethod
     const data = {
       objectiveFunction: {
         coefficients: objectiveCoefficients,
@@ -98,7 +107,6 @@ function App() {
       maxIterations: parseInt(maxIterations),
     };
 
-    // Вызываем функцию solveWithSimplexMethod с переданными данными
     const result = solveWithSimplexMethod(
       data.objectiveFunction,
       data.constraints,
@@ -106,7 +114,6 @@ function App() {
       data.maxIterations,
     );
 
-    // Обновляем состояние приложения с результатами решения
     if (result === null) {
       setError('Задача неограничена или достигнуто максимальное число итераций');
     } else {
@@ -115,126 +122,197 @@ function App() {
     }
   };
 
-  // Проверка, что значение является числом
   const isNumber = (value) => {
     return !isNaN(parseFloat(value)) && isFinite(value);
   };
 
   return (
-    <div className="App">
-      <h1>Оптимизация симплексным методом</h1>
+    <Container maxWidth="md">
+      <Typography variant="h4" align="center" gutterBottom>
+        Оптимизация симплексным методом
+      </Typography>
 
-      <h2>Целевая функция</h2>
+      <Typography variant="h6" sx={{ marginBottom: 2 }}>
+        Целевая функция
+      </Typography>
       {objectiveCoefficients.map((coeff, idx) => (
-        <div key={idx}>
-          <label>{`Коэффициент ${String.fromCharCode(97 + idx)}:`}</label>
-          <input
-            type="number"
-            value={coeff}
-            onChange={(e) => handleObjectiveCoefficientChange(idx, e.target.value)}
-          />
-          <button onClick={() => handleRemoveCoefficient(idx)}>Удалить</button>
-        </div>
+        <Box key={idx} sx={{ marginBottom: 2 }}>
+          {/* Добавлен Box с вертикальным отступом */}
+          <Grid container key={idx} spacing={2} className="mb-2">
+            {/* Добавлен класс для отступа */}
+            <Grid item xs={3}>
+              <TextField
+                type="number"
+                label={`Коэффициент x${idx + 1}`}
+                value={coeff}
+                onChange={(e) => handleObjectiveCoefficientChange(idx, e.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={2} sx={{ alignSelf: 'center' }}>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={() => handleRemoveCoefficient(idx)}>
+                Удалить
+              </Button>
+            </Grid>
+          </Grid>
+        </Box>
       ))}
-      <button onClick={handleAddCoefficient}>Добавить коэффициент</button>
+      <Button variant="contained" color="primary" onClick={handleAddCoefficient}>
+        Добавить коэффициент
+      </Button>
 
-      <h2>Ограничения</h2>
+      <Typography variant="h6" sx={{ marginBottom: 2, marginTop: 4 }}>
+        Ограничения
+      </Typography>
       {constraints.map((constraint, constraintIndex) => (
         <div key={constraintIndex}>
           {constraint.coefficients.map((coeff, coefficientIndex) => (
-            <div key={coefficientIndex}>
-              <label>{`Коэффициент ${String.fromCharCode(97 + coefficientIndex)}:`}</label>
-              <input
-                type="number"
-                value={coeff}
-                onChange={(e) =>
-                  handleConstraintCoefficientChange(
-                    constraintIndex,
-                    coefficientIndex,
-                    e.target.value,
-                  )
-                }
-              />
-            </div>
+            <Box key={coefficientIndex} sx={{ marginBottom: 2 }}>
+              <Grid container spacing={2} key={coefficientIndex}>
+                <Grid item xs={3}>
+                  <TextField
+                    type="number"
+                    label={`Коэффициент x${coefficientIndex + 1}`}
+                    value={coeff}
+                    onChange={(e) =>
+                      handleConstraintCoefficientChange(
+                        constraintIndex,
+                        coefficientIndex,
+                        e.target.value,
+                      )
+                    }
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+            </Box>
           ))}
-          <div>
-            <label>RHS (правая часть):</label>
-            <input
-              type="number"
-              value={constraint.rhs}
-              onChange={(e) => {
-                const updatedConstraints = [...constraints];
-                updatedConstraints[constraintIndex].rhs = parseFloat(e.target.value);
-                setConstraints(updatedConstraints);
-              }}
-            />
-          </div>
-          <div>
-            <label>Тип ограничения:</label>
-            <select
-              value={constraint.type}
-              onChange={(e) => {
-                const updatedConstraints = [...constraints];
-                updatedConstraints[constraintIndex].type = e.target.value;
-                setConstraints(updatedConstraints);
-              }}>
-              <option value="≤">≤</option>
-              <option value="=">=</option>
-              <option value="≥">≥</option>
-            </select>
-          </div>
-          <button onClick={() => handleRemoveConstraint(constraintIndex)}>
-            Удалить ограничение
-          </button>
+          <Grid container spacing={2}>
+            <Grid item xs={4}>
+              <TextField
+                type="number"
+                label="RHS (правая часть)"
+                value={constraint.rhs}
+                onChange={(e) => {
+                  const updatedConstraints = [...constraints];
+                  updatedConstraints[constraintIndex].rhs = parseFloat(e.target.value);
+                  setConstraints(updatedConstraints);
+                }}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={4}>
+              <FormControl fullWidth>
+                <InputLabel>Тип ограничения</InputLabel>
+                <Select
+                  label="Тип ограничения"
+                  value={constraint.type}
+                  onChange={(e) => {
+                    const updatedConstraints = [...constraints];
+                    updatedConstraints[constraintIndex].type = e.target.value;
+                    setConstraints(updatedConstraints);
+                  }}>
+                  <MenuItem value="≤">≤</MenuItem>
+                  <MenuItem value="=">=</MenuItem>
+                  <MenuItem value="≥">≥</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={5} sx={{ alignSelf: 'center', marginBottom: 4 }}>
+              <Button
+                variant="contained"
+                fullWidth
+                color="error"
+                onClick={() => handleRemoveConstraint(constraintIndex)}>
+                Удалить ограничение
+              </Button>
+            </Grid>
+          </Grid>
         </div>
       ))}
-      <button onClick={handleAddConstraint}>Добавить ограничение</button>
+      <Button variant="contained" color="primary" onClick={handleAddConstraint}>
+        Добавить ограничение
+      </Button>
 
-      <h2>Начальное решение</h2>
+      <Typography variant="h6" sx={{ marginBottom: 2, marginTop: 4 }}>
+        Начальное решение
+      </Typography>
       {initialSolution.map((solution, idx) => (
-        <div key={idx}>
-          <label>{`x${idx + 1}:`}</label>
-          <input
-            type="number"
-            value={solution}
-            onChange={(e) => {
-              const updatedInitialSolution = [...initialSolution];
-              updatedInitialSolution[idx] = parseFloat(e.target.value);
-              setInitialSolution(updatedInitialSolution);
-            }}
-          />
-        </div>
+        <Box key={idx} sx={{ marginBottom: 2 }}>
+          <Grid container spacing={2} key={idx}>
+            <Grid item xs={4}>
+              <TextField
+                type="number"
+                label={`x${idx + 1}`}
+                value={solution}
+                onChange={(e) => {
+                  const updatedInitialSolution = [...initialSolution];
+                  updatedInitialSolution[idx] = parseFloat(e.target.value);
+                  setInitialSolution(updatedInitialSolution);
+                }}
+                fullWidth
+              />
+            </Grid>
+          </Grid>
+        </Box>
       ))}
 
-      <h2>Максимальное число итераций</h2>
-      <div>
-        <label>Максимальное число итераций:</label>
-        <input
-          type="number"
-          value={maxIterations}
-          onChange={(e) => setMaxIterations(e.target.value)}
-        />
-      </div>
+      <Typography variant="h6" sx={{ marginBottom: 2, marginTop: 4 }}>
+        Максимальное число итераций
+      </Typography>
+      <Grid container spacing={2}>
+        <Grid item xs={4}>
+          <TextField
+            type="number"
+            label="Максимальное число итераций"
+            value={maxIterations}
+            onChange={(e) => setMaxIterations(e.target.value)}
+            fullWidth
+          />
+        </Grid>
+      </Grid>
 
-      <button onClick={handleSolve}>Решить</button>
+      <Button
+        style={{ marginTop: 24 }}
+        variant="contained"
+        color="primary"
+        onClick={handleSolve}
+        fullWidth>
+        Решить
+      </Button>
 
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <Typography variant="body1" color="error" gutterBottom>
+          {error}
+        </Typography>
+      )}
 
       {result && (
         <div>
-          <h2>Результат:</h2>
-          <p>Оптимальное значение: {result.optimalValue}</p>
-          <p>Оптимальное решение:</p>
-          <ul>
+          <Typography variant="h6" sx={{ marginBottom: 2, marginTop: 4 }}>
+            Результат:
+          </Typography>
+          <Typography variant="body1">Оптимальное значение: {result.optimalValue}</Typography>
+          <Typography variant="body1">Оптимальное решение:</Typography>
+          <List>
             {result.optimalSolution.map((solution, idx) => (
-              <li key={idx}>{`x${idx + 1} = ${solution}`}</li>
+              <ListItem key={idx}>{`x${idx + 1} = ${solution}`}</ListItem>
             ))}
-          </ul>
+          </List>
         </div>
       )}
 
-      <button onClick={() => window.location.reload()}>Сбросить</button>
-    </div>
+      <Button
+        variant="contained"
+        color="secondary"
+        onClick={() => window.location.reload()}
+        fullWidth>
+        Сбросить
+      </Button>
+    </Container>
   );
 }
 
