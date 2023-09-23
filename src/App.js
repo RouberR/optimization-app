@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { solveWithSimplexMethod } from './utils/solveWithSimplexMethod';
+import { Input, Button, Select } from 'antd';
+import simplexOptimization from './simplexOptimization';
 
-function App() {
+const { Option } = Select;
+
+const App = () => {
   const [objectiveCoefficients, setObjectiveCoefficients] = useState([2, 3, 2]);
   const [constraints, setConstraints] = useState([{ coefficients: [1, 2, 44], rhs: 6, type: '≤' }]);
-  const [initialSolution, setInitialSolution] = useState([0, 0, 0]);
+  const [initialSolution, setInitialSolution] = useState([2, 1, 1]);
   const [maxIterations, setMaxIterations] = useState(10);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -31,7 +34,6 @@ function App() {
     }));
     setConstraints(updatedConstraints);
 
-    // Обновляет начальное решение, добавляя нулевое значение для нового коэффициента
     setInitialSolution([...initialSolution, 0]);
   };
 
@@ -47,7 +49,6 @@ function App() {
     });
     setConstraints(updatedConstraints);
 
-    // Обновляет начальное решение, удаляя значение, соответствующее удаленному коэффициенту
     const updatedInitialSolution = [...initialSolution];
     updatedInitialSolution.splice(index, 1);
     setInitialSolution(updatedInitialSolution);
@@ -68,13 +69,11 @@ function App() {
   };
 
   const handleSolve = () => {
-    // Проверка наличия хотя бы одного ограничения перед решением
     if (constraints.length === 0) {
       setError('Добавьте хотя бы одно ограничение перед решением.');
       return;
     }
 
-    // Проверка, что все введенные значения числа
     if (
       !objectiveCoefficients.every(isNumber) ||
       !constraints.every((constraint) => constraint.coefficients.every(isNumber)) ||
@@ -85,58 +84,51 @@ function App() {
       return;
     }
 
-    // Формируем объект с данными для передачи в solveWithSimplexMethod
-    const data = {
-      objectiveFunction: {
-        coefficients: objectiveCoefficients,
-        evaluate: (solution) => {
-          return solution.reduce((acc, coeff, idx) => acc + coeff * objectiveCoefficients[idx], 0);
-        },
-      },
-      constraints: constraints,
-      initialSolution,
-      maxIterations: parseInt(maxIterations),
-    };
+    const objectiveFunctionCoefficients = objectiveCoefficients;
+    const constraintsCoefficients = constraints.map((constraint) => constraint.coefficients);
+    const constraintsRHS = constraints.map((constraint) => constraint.rhs);
 
-    // Вызываем функцию solveWithSimplexMethod с переданными данными
-    const result = solveWithSimplexMethod(
-      data.objectiveFunction,
-      data.constraints,
-      data.initialSolution,
-      data.maxIterations,
+    const optimizationResult = simplexOptimization(
+      objectiveFunctionCoefficients,
+      constraintsCoefficients,
+      constraintsRHS,
+      initialSolution,
+      parseInt(maxIterations),
     );
 
-    // Обновляем состояние приложения с результатами решения
-    if (result === null) {
+    if (optimizationResult === null) {
       setError('Задача неограничена или достигнуто максимальное число итераций');
     } else {
-      setResult(result);
+      setResult(optimizationResult);
       setError(null);
     }
   };
 
-  // Проверка, что значение является числом
   const isNumber = (value) => {
     return !isNaN(parseFloat(value)) && isFinite(value);
   };
 
   return (
     <div className="App">
-      <h1>Оптимизация симплексным методом</h1>
+      <h3>
+        Решение многомерных оптимизационных задач симплексным методом с редукцией. Редукция
+        относительно центра симплекса
+      </h3>
 
       <h2>Целевая функция</h2>
       {objectiveCoefficients.map((coeff, idx) => (
         <div key={idx}>
           <label>{`Коэффициент ${String.fromCharCode(97 + idx)}:`}</label>
-          <input
+          <Input
             type="number"
             value={coeff}
+            style={{ width: 100 }}
             onChange={(e) => handleObjectiveCoefficientChange(idx, e.target.value)}
           />
-          <button onClick={() => handleRemoveCoefficient(idx)}>Удалить</button>
+          <Button onClick={() => handleRemoveCoefficient(idx)}>Удалить</Button>
         </div>
       ))}
-      <button onClick={handleAddCoefficient}>Добавить коэффициент</button>
+      <Button onClick={handleAddCoefficient}>Добавить коэффициент</Button>
 
       <h2>Ограничения</h2>
       {constraints.map((constraint, constraintIndex) => (
@@ -144,9 +136,10 @@ function App() {
           {constraint.coefficients.map((coeff, coefficientIndex) => (
             <div key={coefficientIndex}>
               <label>{`Коэффициент ${String.fromCharCode(97 + coefficientIndex)}:`}</label>
-              <input
+              <Input
                 type="number"
                 value={coeff}
+                style={{ width: 100 }}
                 onChange={(e) =>
                   handleConstraintCoefficientChange(
                     constraintIndex,
@@ -159,9 +152,10 @@ function App() {
           ))}
           <div>
             <label>RHS (правая часть):</label>
-            <input
+            <Input
               type="number"
               value={constraint.rhs}
+              style={{ width: 100 }}
               onChange={(e) => {
                 const updatedConstraints = [...constraints];
                 updatedConstraints[constraintIndex].rhs = parseFloat(e.target.value);
@@ -171,71 +165,67 @@ function App() {
           </div>
           <div>
             <label>Тип ограничения:</label>
-            <select
+            <Select
               value={constraint.type}
-              onChange={(e) => {
+              onChange={(value) => {
                 const updatedConstraints = [...constraints];
-                updatedConstraints[constraintIndex].type = e.target.value;
+                updatedConstraints[constraintIndex].type = value;
                 setConstraints(updatedConstraints);
               }}>
-              <option value="≤">≤</option>
-              <option value="=">=</option>
-              <option value="≥">≥</option>
-            </select>
+              <Option value="≤">≤</Option>
+              <Option value="=">=</Option>
+              <Option value="≥">≥</Option>
+            </Select>
           </div>
-          <button onClick={() => handleRemoveConstraint(constraintIndex)}>
+          <Button onClick={() => handleRemoveConstraint(constraintIndex)}>
             Удалить ограничение
-          </button>
+          </Button>
         </div>
       ))}
-      <button onClick={handleAddConstraint}>Добавить ограничение</button>
+      <Button onClick={handleAddConstraint}>Добавить ограничение</Button>
 
       <h2>Начальное решение</h2>
       {initialSolution.map((solution, idx) => (
         <div key={idx}>
           <label>{`x${idx + 1}:`}</label>
-          <input
+          <Input
             type="number"
             value={solution}
+            style={{ width: 100 }}
             onChange={(e) => {
-              const updatedInitialSolution = [...initialSolution];
-              updatedInitialSolution[idx] = parseFloat(e.target.value);
-              setInitialSolution(updatedInitialSolution);
+              const updatedSolution = [...initialSolution];
+              updatedSolution[idx] = parseFloat(e.target.value);
+              setInitialSolution(updatedSolution);
             }}
           />
         </div>
       ))}
 
-      <h2>Максимальное число итераций</h2>
       <div>
         <label>Максимальное число итераций:</label>
-        <input
+        <Input
           type="number"
           value={maxIterations}
-          onChange={(e) => setMaxIterations(e.target.value)}
+          style={{ width: 100 }}
+          onChange={(e) => setMaxIterations(parseInt(e.target.value))}
         />
       </div>
 
-      <button onClick={handleSolve}>Решить</button>
+      <Button type="primary" onClick={handleSolve}>
+        Решить
+      </Button>
 
-      {error && <p className="error">{error}</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
 
       {result && (
         <div>
-          <h2>Результат:</h2>
+          <h2>Результат оптимизации</h2>
           <p>Оптимальное значение: {result.optimalValue}</p>
-          <p>Оптимальное решение:</p>
-          <ul>
-            {result.optimalSolution.map((solution, idx) => (
-              <li key={idx}>{`x${idx + 1} = ${solution}`}</li>
-            ))}
-          </ul>
+          <p>Оптимальное решение: {result.optimalSolution.join(', ')}</p>
         </div>
       )}
-
-      <button onClick={() => window.location.reload()}>Сбросить</button>
     </div>
   );
-}
+};
 
 export default App;

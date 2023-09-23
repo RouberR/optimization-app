@@ -1,11 +1,12 @@
-export function solveWithSimplexMethod(
-  objectiveFunction,
-  constraints,
+export default function simplexOptimization(
+  objectiveFunctionCoefficients,
+  constraintsCoefficients,
+  constraintsRHS,
   initialSolution,
   maxIterations,
 ) {
-  const numVariables = objectiveFunction.coefficients.length;
-  const numConstraints = constraints.length;
+  const numVariables = objectiveFunctionCoefficients.length;
+  const numConstraints = constraintsCoefficients.length;
   let solution = initialSolution.slice();
   let iteration = 0;
 
@@ -14,9 +15,9 @@ export function solveWithSimplexMethod(
     const c = new Array(numVariables).fill(0);
     for (let i = 0; i < numVariables; i++) {
       for (let j = 0; j < numConstraints; j++) {
-        c[i] += constraints[j].coefficients[i] * solution[j];
+        c[i] += constraintsCoefficients[j][i] * solution[j];
       }
-      c[i] -= objectiveFunction.coefficients[i];
+      c[i] -= objectiveFunctionCoefficients[i];
     }
 
     // Шаг 2: Проверка на оптимальность
@@ -29,7 +30,10 @@ export function solveWithSimplexMethod(
     }
 
     if (isOptimal) {
-      const optimalValue = objectiveFunction.evaluate(solution);
+      const optimalValue = objectiveFunctionCoefficients.reduce(
+        (acc, coefficient, index) => acc + coefficient * solution[index],
+        0,
+      );
       return {
         optimalValue,
         optimalSolution: solution,
@@ -38,13 +42,14 @@ export function solveWithSimplexMethod(
 
     // Шаг 3: Выбор входящей переменной (с наибольшим отрицательным коэффициентом)
     const enteringVariable = c.findIndex((coefficient) => coefficient < 0);
-    // Шаг 4: Выбор выходящей переменной
+
+    // Шаг 4: Выбор выходящей переменной (редукция относительно центра симплекса)
     let minRatio = Infinity;
     let exitingVariable = -1;
 
     for (let i = 0; i < numConstraints; i++) {
-      if (constraints[i].coefficients[enteringVariable] > 0) {
-        const ratio = constraints[i].rhs / constraints[i].coefficients[enteringVariable];
+      if (constraintsCoefficients[i][enteringVariable] > 0) {
+        const ratio = constraintsRHS[i] / constraintsCoefficients[i][enteringVariable];
         if (ratio < minRatio) {
           minRatio = ratio;
           exitingVariable = i;
@@ -58,17 +63,18 @@ export function solveWithSimplexMethod(
     }
 
     // Шаг 5: Обновление решения
-    const pivotElement = constraints[exitingVariable].coefficients[enteringVariable];
+    const pivotElement = constraintsCoefficients[exitingVariable][enteringVariable];
     for (let i = 0; i < numVariables; i++) {
-      solution[i] -= (constraints[exitingVariable].coefficients[i] / pivotElement) * minRatio;
+      solution[i] -= (constraintsCoefficients[exitingVariable][i] / pivotElement) * minRatio;
     }
 
     // Обновление базиса
-    solution[exitingVariable] = 0;
-    solution[enteringVariable] = minRatio;
+    solution[exitingVariable] = minRatio;
+    solution[enteringVariable] = 0;
 
     iteration++;
   }
+
   // Достигнуто максимальное число итераций
   return null;
 }
